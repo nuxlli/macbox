@@ -1,0 +1,136 @@
+(version 1)
+
+(debug all)
+(deny default)
+
+;(import "system.sb")
+
+(allow process*)
+(allow network*)
+
+(allow system-socket)
+(allow ipc-posix-shm) ; Libnotify
+(allow sysctl-read)
+
+;;; Allow read access to standard system paths.
+(allow file-read*
+       (require-all (file-mode #o0004)
+                    (require-any (subpath "/System")
+                                 (subpath "/usr/lib")
+                                 (subpath "/usr/share")
+                                 (subpath "/private/var/db/dyld"))))
+
+(allow file-read-metadata
+      (literal "/tmp")
+      (literal "/var")
+      (literal "/private/tmp")
+      (literal "/private/etc")
+      (literal "/private/var")
+      ;(literal "/private/etc/localtime")
+      )
+      
+(allow file-read*
+      (subpath "/bin")
+      (subpath "/sbin")
+      (subpath "/usr")
+      (subpath "/etc")
+      (subpath "/Library")
+      (subpath "/private")
+  )
+  
+(allow file-write* file-read*
+    (subpath "/dev" )
+    (regex "^/private/tmp" )
+    (regex "^/Library/Logs" )
+    (regex "^/Library/Caches" )
+    (regex "^/Users" )
+    (regex "^/Users/nuxlli" )
+)
+
+(allow mach-lookup 
+       (global-name "com.apple.bsd.dirhelper")
+       (global-name "com.apple.cfprefsd.agent")
+       (global-name "com.apple.cfprefsd.daemon")
+       (global-name "com.apple.system.notification_center")
+       (global-name "com.apple.system.opendirectoryd.libinfo")
+       (global-name "com.apple.TrustEvaluationAgent")
+       (global-name "com.apple.system.DirectoryService.libinfo_v1")
+       (global-name "com.apple.system.opendirectoryd.membership")
+       )
+       
+(allow mach-lookup (global-name "com.apple.distributed_notifications@Uv3"))
+       
+;(allow file-read*
+;       (literal "/etc/hosts")
+;  )
+
+;;; Allow access to standard special files.
+(allow file-read*
+       (literal "/dev/autofs_nowait")
+       (literal "/dev/random")
+       (literal "/dev/urandom"))
+
+(allow file-read*
+       file-write-data
+       (literal "/dev/null")
+       (literal "/dev/zero"))
+
+(allow file-read*
+       file-write-data
+       file-ioctl
+       (literal "/dev/dtracehelper"))
+
+(allow network-outbound
+       (literal "/private/var/run/asl_input")
+       (literal "/private/var/run/syslog"))
+         
+         
+;; Allow chroot in param "ROOT"
+(allow file-chroot (regex (string-append "^(?/private)" (regex-quote (param "ROOT")))))
+
+;;(allow file-read-data file-read-metadata
+;;  (regex "^/.*"))
+
+;;(deny file-write*
+;;  (regex "^/.*"))
+
+;;(allow ipc-posix-shm) ; Libnotify
+;;(allow signal (target self))
+
+;;(allow file-chroot)
+
+;;(allow file-read* (regex "^.*/resolv.conf$"))
+;;(allow file-read* (regex "^/usr/lib/"))
+
+;;(allow sysctl-read)
+
+;;(allow file-write* file-read* (regex "^/Users/nuxlli/"))
+(allow file-write* file-read* (regex (string-append "^(?/private)" (regex-quote (param "ROOT")))))
+(allow file-write* file-read* (regex "^/usr/local"))
+;;(allow file-write* (regex "^(/private)?/var/"))
+;;(allow file-write* (literal "/dev/null"))
+;;(allow file-write* file-read* file-ioctl (literal "/dev/dtracehelper"))
+;;(allow file-read* (regex "^(/private)?/var"))
+;;(allow file-read* (regex "^(/private)?/etc"))
+;;(allow file-read* (regex "^(/private)?/tmp"))
+;;(allow file-read* (regex "^/bin"))
+;;(allow file-read* (regex "^/sbin"))
+;;(allow file-read* (regex "^/System/Library/PrivateFrameworks"))
+
+;;(allow file-write* file-read-data file-read-metadata
+;;  (regex "^(/private)?/tmp/"))
+
+;; (deny signal)
+;;(allow sysctl-read)
+
+;; Allow named-specific files
+;;(allow file-write* file-read-data file-read-metadata
+;;  (regex "^(/private)?/var/rcun/named\\.pid$"
+;;         "^/Library/Logs/named\\.log$"))
+
+;;(allow file-read-data file-read-metadata
+;;  (regex "^(/private)?/etc/rndc\\.key$"
+;;         "^(/private)?/etc/resolv\\.conf$"
+;;         "^(/private)?/etc/named\\.conf$"
+;;         "^(/private)?/var/named/"))
+  

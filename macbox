@@ -1,0 +1,105 @@
+#!/usr/bin/env ruby
+
+require "awesome_print"
+
+ENV.delete("DYLD_INSERT_LIBRARIES")
+ENV.delete("DYLD_LIBRARY_PATH")
+ENV.delete("LD_LIBRARY_PATH")
+
+user = ENV["LOGNAME"]
+profile = "#{File.expand_path(File.dirname(__FILE__))}/profile.sb"
+root = "/tmp/myvm"
+bind = %w{
+  /bin
+  /sbin
+  /usr/bin
+  /usr/sbin
+  /usr/lib
+  /usr/share/git-core
+  /System
+}
+
+structure = %w{
+  /dev
+  /private/var/run
+  /private/etc
+  /private/tmp
+  /Library/Logs
+  /Library/Caches
+  /usr/local
+  #{ENV["HOME"]}
+}
+
+links = {
+  '/etc' => '/private/etc',
+  '/var' => '/private/var',
+  '/tmp' => '/private/tmp'
+}
+
+hard_links = %w{
+  /private/var/run/mDNSResponder
+}
+
+# Map binds folder and target to mount
+binds = Hash[bind.map { |folder| [folder, "#{root}#{folder}"] }]
+# binds_target = binds.map { |key, target| target }
+
+# Umount all
+system("mount | grep #{root} | awk '{ print $3 }' | xargs umount")
+
+# Folder structure
+structure.each do |dir|
+  # system("rm -rf #{root}#{dir}")
+  system("mkdir -p #{root}#{dir}")
+end
+
+# Links
+links.each do |link, target|
+  link = "#{root}#{link}"
+  system("rm #{link} 2> /dev/null; ln -s #{target} #{link}")
+end
+
+# Mount read only
+binds.each do |folder, target|
+  system("rm -rf #{target}/*")
+  system("mkdir -p #{target}")
+  system("bindfs #{folder} #{target}")
+end
+
+# dev
+mknod = "sudo mknod"
+chmod = "sudo chmod"
+system("sudo rm -Rf #{root}/dev/*")
+system("#{mknod} #{root}/dev/null c 1 3; #{chmod} 666 #{root}/dev/null")
+system("#{mknod} #{root}/dev/zero c 1 5; #{chmod} 666 #{root}/dev/zero")
+system("#{mknod} #{root}/dev/random c 1 8; #{chmod} 666 #{root}/dev/zero")
+system("#{mknod} #{root}/dev/urandom c 1 9; #{chmod} 666 #{root}/dev/urandom")
+system("#{mknod} #{root}/dev/tty c 5 0; #{chmod} 666 #{root}/dev/tty")
+system("#{mknod} #{root}/dev/tty0 c 4 0; #{chmod} 666 #{root}/dev/tty0")
+system("#{mknod} #{root}/dev/full c 1 7; #{chmod} 666 #{root}/dev/full")
+system("#{mknod} #{root}/dev/ptmx c 5 2; #{chmod} 666 #{root}/dev/ptmx")
+system("#{mknod} #{root}/dev/console c 5 1; #{chmod} 1777 #{root}/dev/ptmx")
+system("mkdir -m 755 #{root}/dev/pts")
+system("mkdir -m 1777 #{root}/dev/shm")
+system("mkdir -m 1777 #{root}/dev/fd")
+
+hard_links.each { |link| system("ln #{link} #{root}/#{link} 2> /dev/null") }
+
+# sockets = %w{
+#   /private/var/run/mDNSResponder
+#   /private/var/run/syslog
+# }
+# sockets_pids = sockets.map do |socket|
+#   spawn("socat -d -d -d -d -lf /tmp/socat.log UNIX-LISTEN:#{root}#{socket},mode=666,fork UNIX-CONNECT:#{socket}")
+# end
+
+# Execute command
+
+pid = spawn("sudo sandbox-exec -f #{profile} -D ROOT=#{root} chroot -u #{user} #{root} #{ARGV.join(' ')}")
+# pid = spawn("sudo chroot -u #{user} #{root} #{ARGV.join(' ')}")
+Process.wait(pid)
+
+# Umount all and clean env
+# sockets_pids.each { |pid| Process.kill(9, pid) }
+hard_links.each { |link| system("rm #{link} 2> /dev/null") }
+system("mount | grep #{root} | awk '{ print $3 }' | xargs umount")
